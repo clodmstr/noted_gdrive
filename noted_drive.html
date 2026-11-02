@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Noted - Aplikasi Catatan & Folder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 700: '#0369a1' }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.7); }
+    [contenteditable=true]:empty:before { content: attr(placeholder); color: #9ca3af; pointer-events: none; display: block; }
+    .toolbar-group { transition: all 0.2s ease; }
+    .toolbar-group:hover { transform: translateY(-1px); }
+    .tb-btn.is-active { background-color: #e0f2fe !important; color: #0284c7 !important; border-color: #7dd3fc !important; }
+    .dark .tb-btn.is-active { background-color: #0c4a6e !important; color: #7dd3fc !important; border-color: #0369a1 !important; }
+  </style>
+</head>
+<body class="h-full bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 flex flex-col overflow-hidden transition-colors duration-200">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="h-14 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 flex items-center justify-between px-4 z-20 shrink-0">
+    <div class="flex items-center space-x-3">
+      <button id="toggleSidebarMobile" class="md:hidden p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded-lg">
+        <i class="fa-solid fa-bars text-lg"></i>
+      </button>
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-lg bg-brand-500 text-white flex items-center justify-center font-bold text-lg shadow-md">
+          <i class="fa-solid fa-note-sticky"></i>
+        </div>
+        <span class="font-bold text-xl tracking-tight hidden sm:inline">Noted</span>
+      </div>
+    </div>
+
+    <div class="flex-1 max-w-md mx-4">
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+        <input type="text" id="searchInput" placeholder="Cari catatan atau tag..." 
+          class="w-full pl-9 pr-8 py-1.5 bg-gray-100 dark:bg-gray-800 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all border border-transparent dark:border-gray-700">
+        <button id="clearSearchBtn" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-2">
+      <button id="btnNewNote" class="hidden md:flex bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium items-center space-x-1.5 shadow-sm transition-colors">
+        <i class="fa-solid fa-plus text-xs"></i>
+        <span>Catatan Baru</span>
+      </button>
+
+      <button id="gdriveSyncBtn" onclick="handleGDriveAuthClick()" title="Sinkronisasi Google Drive" class="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-sm flex items-center space-x-1.5 transition-colors">
+        <i class="fa-brands fa-google-drive text-lg"></i>
+        <span id="gdriveStatusText" class="hidden sm:inline text-xs font-medium">Hubungkan Drive</span>
+      </button>
+
+      <div class="relative">
+        <button id="btnDataMenu" class="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-sm">
+          <i class="fa-solid fa-ellipsis-vertical"></i>
+        </button>
+        <div id="dataMenuDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 py-1 text-sm">
+          <button id="btnExportJSON" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2">
+            <i class="fa-solid fa-file-export text-gray-400 w-4"></i>
+            <span>Ekspor Semua (JSON)</span>
+          </button>
+          <button id="btnImportJSON" class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2">
+            <i class="fa-solid fa-file-import text-gray-400 w-4"></i>
+            <span>Impor Data (JSON)</span>
+          </button>
+          <input type="file" id="importFileInput" accept=".json" class="hidden">
+          <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+          <button id="btnDisconnectDrive" class="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center space-x-2">
+            <i class="fa-solid fa-unlink text-red-400 w-4"></i>
+            <span>Putuskan Drive</span>
+          </button>
+        </div>
+      </div>
+
+      <button id="themeToggle" class="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-sm">
+        <i id="themeIcon" class="fa-solid fa-moon"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <div class="flex-1 flex overflow-hidden relative">
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-0 hidden md:hidden transition-opacity duration-200 opacity-0"></div>
+
+    <!-- PANEL 1: SIDEBAR -->
+    <aside id="sidebar" class="w-64 bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0 absolute md:relative inset-y-0 left-0 z-10 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out">
+      <div class="p-3 border-b border-gray-200 dark:border-gray-800 space-y-1">
+        <button id="navAllNotes" class="nav-item active w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          <div class="flex items-center space-x-2.5"><i class="fa-solid fa-notes-medical text-brand-500 w-4"></i><span>Semua Catatan</span></div>
+          <span id="countAllNotes" class="text-xs bg-gray-200 dark:bg-gray-800 px-2 py-0.5 rounded-full text-gray-600 dark:text-gray-400">0</span>
+        </button>
+        <button id="navFavorites" class="nav-item w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          <div class="flex items-center space-x-2.5"><i class="fa-solid fa-star text-amber-500 w-4"></i><span>Favorit</span></div>
+          <span id="countFavorites" class="text-xs bg-gray-200 dark:bg-gray-800 px-2 py-0.5 rounded-full text-gray-600 dark:text-gray-400">0</span>
+        </button>
+        <button id="navTrash" class="nav-item w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          <div class="flex items-center space-x-2.5"><i class="fa-solid fa-trash text-red-500 w-4"></i><span>Sampah</span></div>
+          <span id="countTrash" class="text-xs bg-gray-200 dark:bg-gray-800 px-2 py-0.5 rounded-full text-gray-600 dark:text-gray-400">0</span>
+        </button>
+      </div>
+
+      <div class="px-4 pt-4 pb-2 flex items-center justify-between">
+        <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase">Folder Saya</span>
+        <button id="btnAddRootFolder" title="Buat Folder Utama Baru" class="text-gray-500 hover:text-brand-500 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"><i class="fa-solid fa-folder-plus text-sm"></i></button>
+      </div>
+      <div class="flex-1 overflow-y-auto px-2 space-y-0.5" id="folderTreeContainer"></div>
+
+      <div class="px-4 pt-3 pb-2 flex items-center justify-between border-t border-gray-200 dark:border-gray-800">
+        <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 tracking-wider uppercase">Tag</span>
+      </div>
+      <div class="px-3 pb-3 overflow-y-auto max-h-36 flex flex-wrap gap-1.5" id="tagListContainer"></div>
+    </aside>
+
+    <!-- PANEL 2: NOTES LIST -->
+    <section id="notesListPanel" class="w-full md:w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col shrink-0">
+      <div class="p-3 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-950/50">
+        <div>
+          <h2 id="currentCategoryTitle" class="font-bold text-base truncate">Semua Catatan</h2>
+          <p id="notesCountSubtitle" class="text-xs text-gray-500">0 Catatan</p>
+        </div>
+        <div class="flex items-center space-x-1">
+          <button id="btnSort" title="Urutkan Catatan" class="p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg text-xs"><i class="fa-solid fa-arrow-down-short-wide"></i></button>
+          <button id="btnToggleLayout" title="Ubah Tampilan Grid/List" class="p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg text-xs"><i id="layoutIcon" class="fa-solid fa-list"></i></button>
+        </div>
+      </div>
+      <div id="filterBadgeBar" class="hidden px-3 py-1.5 bg-brand-50 dark:bg-brand-950/40 border-b border-brand-100 dark:border-brand-900 flex items-center justify-between text-xs text-brand-700 dark:text-brand-300">
+        <span id="filterBadgeText">Filter aktif</span>
+        <button id="btnClearFilter" class="hover:text-red-500"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="notesContainer" class="flex-1 overflow-y-auto p-2 space-y-2"></div>
+    </section>
+
+    <!-- PANEL 3: NOTE EDITOR -->
+    <main id="editorPanel" class="flex-1 bg-white dark:bg-gray-950 flex flex-col overflow-hidden hidden md:flex">
+      <div id="editorHeader" class="border-b border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-950 shrink-0">
+        <div class="px-4 py-2 flex items-center justify-between border-b border-gray-100 dark:border-gray-900">
+          <div class="flex items-center space-x-2 text-xs text-gray-500">
+            <button id="btnBackToList" class="md:hidden p-1 mr-1 text-gray-600 dark:text-gray-300"><i class="fa-solid fa-arrow-left text-base"></i></button>
+            <i class="fa-regular fa-folder text-brand-500"></i>
+            <select id="noteFolderSelect" class="bg-transparent text-xs text-gray-700 dark:text-gray-300 font-medium focus:outline-none cursor-pointer hover:text-brand-500"></select>
+          </div>
+          <div class="flex items-center space-x-1" id="noteActionsBar">
+            <button id="btnToggleFavorite" title="Tandai Favorit" class="p-2 text-gray-400 hover:text-amber-500 rounded-lg"><i id="favIcon" class="fa-regular fa-star text-base"></i></button>
+            <button id="btnExportMarkdown" title="Ekspor sebagai File Text/Markdown" class="p-2 text-gray-400 hover:text-brand-500 rounded-lg"><i class="fa-solid fa-download text-base"></i></button>
+            <button id="btnDeleteNote" title="Hapus Catatan (Sampah)" class="p-2 text-gray-400 hover:text-red-500 rounded-lg"><i class="fa-regular fa-trash-can text-base"></i></button>
+            <button id="btnRestoreNote" title="Pulihkan Catatan" class="hidden px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg"><i class="fa-solid fa-rotate-left mr-1"></i> Pulihkan</button>
+            <button id="btnPermanentDelete" title="Hapus Permanen" class="hidden px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg"><i class="fa-solid fa-xmark mr-1"></i> Hapus Permanen</button>
+          </div>
+        </div>
+
+        <!-- FORMATTING TOOLBAR -->
+        <div id="formattingToolbarContainer" class="hidden opacity-0 transform -translate-y-2 transition-all duration-300 ease-out px-4 py-2 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 shadow-sm z-10">
+          <div class="md:hidden flex items-center justify-between">
+            <div class="flex items-center space-x-1 overflow-x-auto pb-1 flex-1 scrollbar-hide">
+              <div class="toolbar-group flex items-center space-x-0.5 bg-white dark:bg-gray-800 rounded-lg p-0.5 shadow-sm border border-gray-200 dark:border-gray-700">
+                <button data-cmd="bold" title="Bold" class="tb-btn p-2 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 font-bold text-sm min-w-[32px]">B</button>
+                <button data-cmd="italic" title="Italic" class="tb-btn p-2 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 italic text-sm min-w-[32px]">I</button>
+                <button data-cmd="underline" title="Underline" class="tb-btn p-2 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 underline text-sm min-w-[32px]">U</button>
+              </div>
+              <div class="toolbar-group flex items-center space-x-0.5 bg-white dark:bg-gray-800 rounded-lg p-0.5 shadow-sm border border-gray-200 dark:border-gray-700 ml-1">
+                <button data-cmd="formatBlock" data-val="h1" title="Heading 1" class="tb-btn p-2 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 font-bold text-xs min-w-[32px]">H1</button>
+                <button data-cmd="formatBlock" data-val="h2" title="Heading 2" class="tb-btn p-2 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 font-bold text-xs min-w-[32px]">H2</button>
+              </div>
+              <div class="toolbar-group flex items-center space-x-0.5 bg-white dark:bg-gray-800 rounded-lg p-0.5 shadow-sm border border-gray-200 dark:border-gray-700 ml-1">
+                <button data-cmd="insertUnorderedList" title="Bullet List" class="tb-btn p-2 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 min-w-[32px]"><i class="fa-solid fa-list-ul text-xs"></i></button>
+                <button data-cmd="insertOrderedList" title="Numbered List" class="tb-btn p-2 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 min-w-[32px]"><i class="fa-solid fa-list-ol text-xs"></i></button>
+                <button id="toggleMoreTools" class="tb-btn p-2 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 min-w-[32px]"><i class="fa-solid fa-ellipsis-h text-xs"></i></button>
+              </div>
+            </div>
+          </div>
+          
+          <div id="expandedTools" class="hidden md:hidden mt-2 pb-2 border-t border-gray-200 dark:border-gray-700 pt-2">
+            <div class="flex items-center space-x-2 overflow-x-auto">
+              <button data-cmd="strikeThrough" title="Strikethrough" class="tb-btn p-2 bg-white dark:bg-gray-800 hover:bg-brand-50 dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-300 line-through text-sm shadow-sm border border-gray-200 dark:border-gray-700">S</button>
+              <button data-cmd="formatBlock" data-val="p" title="Paragraf" class="tb-btn p-2 bg-white dark:bg-gray-800 hover:bg-brand-50 dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-300 text-sm shadow-sm border border-gray-200 dark:border-gray-700">P</button>
+              <button data-cmd="formatBlock" data-val="pre" title="Code Block" class="tb-btn p-2 bg-white dark:bg-gray-800 hover:bg-brand-50 dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-300 shadow-sm border border-gray-200 dark:border-gray-700"><i class="fa-solid fa-code text-xs"></i></button>
+              <label class="p-2 bg-white dark:bg-gray-800 hover:bg-brand-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer shadow-sm border border-gray-200 dark:border-gray-700" title="Warna Teks">
+                <i class="fa-solid fa-palette text-gray-700 dark:text-gray-300 text-xs"></i>
+                <input type="color" id="textColorPicker" class="opacity-0 w-0 h-0">
+              </label>
+              <label class="p-2 bg-white dark:bg-gray-800 hover:bg-brand-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer shadow-sm border border-gray-200 dark:border-gray-700" title="Sorot Teks">
+                <i class="fa-solid fa-highlighter text-gray-700 dark:text-gray-300 text-xs"></i>
+                <input type="color" id="highlightColorPicker" class="opacity-0 w-0 h-0" value="#fef08a">
+              </label>
+              <button data-cmd="removeFormat" title="Hapus Format" class="tb-btn p-2 bg-white dark:bg-gray-800 hover:bg-brand-50 dark:hover:bg-gray-700 rounded-lg text-red-500 shadow-sm border border-gray-200 dark:border-gray-700"><i class="fa-solid fa-eraser text-xs"></i></button>
+            </div>
+          </div>
+
+          <div class="hidden md:flex items-center space-x-3">
+            <div class="toolbar-group flex items-center space-x-1 bg-white dark:bg-gray-800 rounded-lg p-1 shadow-sm border border-gray-200 dark:border-gray-700">
+              <button data-cmd="bold" title="Bold (Ctrl+B)" class="tb-btn p-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded font-bold text-gray-700 dark:text-gray-300 w-8 h-8">B</button>
+              <button data-cmd="italic" title="Italic (Ctrl+I)" class="tb-btn p-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded italic text-gray-700 dark:text-gray-300 w-8 h-8">I</button>
+              <button data-cmd="underline" title="Underline (Ctrl+U)" class="tb-btn p-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded underline text-gray-700 dark:text-gray-300 w-8 h-8">U</button>
+              <button data-cmd="strikeThrough" title="Strikethrough" class="tb-btn p-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded line-through text-gray-700 dark:text-gray-300 w-8 h-8">S</button>
+            </div>
+            <div class="toolbar-group flex items-center space-x-1 bg-white dark:bg-gray-800 rounded-lg p-1 shadow-sm border border-gray-200 dark:border-gray-700">
+              <button data-cmd="formatBlock" data-val="h1" title="Heading 1" class="tb-btn px-2 py-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded font-bold text-gray-700 dark:text-gray-300 text-sm">H1</button>
+              <button data-cmd="formatBlock" data-val="h2" title="Heading 2" class="tb-btn px-2 py-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded font-bold text-gray-700 dark:text-gray-300 text-sm">H2</button>
+              <button data-cmd="formatBlock" data-val="p" title="Paragraf Normal" class="tb-btn px-2 py-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 text-sm">P</button>
+            </div>
+            <div class="toolbar-group flex items-center space-x-1 bg-white dark:bg-gray-800 rounded-lg p-1 shadow-sm border border-gray-200 dark:border-gray-700">
+              <button data-cmd="insertUnorderedList" title="Bullet List" class="tb-btn p-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 w-8 h-8"><i class="fa-solid fa-list-ul text-xs"></i></button>
+              <button data-cmd="insertOrderedList" title="Numbered List" class="tb-btn p-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 w-8 h-8"><i class="fa-solid fa-list-ol text-xs"></i></button>
+              <button data-cmd="formatBlock" data-val="pre" title="Code Block" class="tb-btn p-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-gray-700 dark:text-gray-300 w-8 h-8"><i class="fa-solid fa-code text-xs"></i></button>
+            </div>
+            <div class="toolbar-group flex items-center space-x-1 bg-white dark:bg-gray-800 rounded-lg p-1 shadow-sm border border-gray-200 dark:border-gray-700">
+              <label class="p-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded cursor-pointer w-8 h-8 flex items-center justify-center" title="Warna Teks">
+                <i class="fa-solid fa-palette text-gray-700 dark:text-gray-300 text-xs"></i>
+                <input type="color" id="textColorPicker" class="opacity-0 w-0 h-0">
+              </label>
+              <label class="p-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded cursor-pointer w-8 h-8 flex items-center justify-center" title="Sorot Teks">
+                <i class="fa-solid fa-highlighter text-gray-700 dark:text-gray-300 text-xs"></i>
+                <input type="color" id="highlightColorPicker" class="opacity-0 w-0 h-0" value="#fef08a">
+              </label>
+              <button data-cmd="removeFormat" title="Hapus Format Teks" class="tb-btn p-1.5 hover:bg-brand-50 dark:hover:bg-gray-700 rounded text-red-500 w-8 h-8"><i class="fa-solid fa-eraser text-xs"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="editorBody" class="flex-1 overflow-y-auto p-6 space-y-4 max-w-4xl w-full mx-auto">
+        <input type="text" id="noteTitleInput" placeholder="Judul Catatan..." class="w-full text-2xl md:text-3xl font-bold bg-transparent focus:outline-none border-b border-transparent focus:border-brand-500 pb-2 transition-all">
+        <div class="flex items-center flex-wrap gap-1.5 py-1" id="noteTagsWrapper">
+          <i class="fa-solid fa-tags text-gray-400 text-xs mr-1"></i>
+          <div id="activeTagsContainer" class="flex flex-wrap gap-1"></div>
+          <input type="text" id="addTagInput" placeholder="+ Tambah tag (Tekan Enter)..." class="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md focus:outline-none focus:ring-1 focus:ring-brand-500 border border-transparent dark:border-gray-700">
+        </div>
+        <div id="noteContentEditor" contenteditable="true" placeholder="Mulai menulis catatan Anda di sini..." class="w-full min-h-[350px] focus:outline-none text-base leading-relaxed text-gray-800 dark:text-gray-200"></div>
+      </div>
+
+      <div id="editorFooter" class="h-9 px-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 flex items-center justify-between text-xs text-gray-500 shrink-0">
+        <div class="flex items-center space-x-4">
+          <span id="statWords">0 kata</span>
+          <span id="statChars">0 karakter</span>
+        </div>
+        <div class="flex items-center space-x-3">
+          <span id="statSavedTime" class="text-green-600 dark:text-green-400 font-medium">Tersimpan</span>
+          <span id="gdriveSyncIndicator" class="hidden text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1"><i class="fa-brands fa-google-drive"></i> Tersinkronisasi</span>
+          <span id="statLastModified">Diubah: -</span>
+        </div>
+      </div>
+
+      <div id="emptyEditorState" class="absolute inset-0 bg-white dark:bg-gray-950 flex flex-col items-center justify-center text-center p-6 z-10 hidden">
+        <div class="w-16 h-16 rounded-full bg-brand-50 dark:bg-gray-900 text-brand-500 flex items-center justify-center text-2xl mb-4"><i class="fa-regular fa-file-lines"></i></div>
+        <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200 mb-1">Tidak ada catatan terpilih</h3>
+        <p class="text-sm text-gray-500 max-w-sm mb-4">Pilih catatan dari daftar sebelah kiri atau buat catatan baru untuk memulai.</p>
+        <button id="btnEmptyStateNewNote" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors">+ Buat Catatan Baru</button>
+      </div>
+    </main>
+  </div>
+
+  <button id="fabNewNote" class="fixed bottom-6 right-6 w-14 h-14 bg-brand-600 hover:bg-brand-700 text-white rounded-full shadow-xl flex items-center justify-center z-40 transition-all duration-200 hover:scale-110 active:scale-95 md:hidden" title="Catatan Baru">
+    <i class="fa-solid fa-plus text-xl"></i>
+  </button>
+
+  <div id="folderModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+      <h3 id="folderModalTitle" class="text-lg font-bold">Buat Folder Baru</h3>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Nama Folder</label>
+        <input type="text" id="folderNameInput" placeholder="Masukkan nama folder..." class="w-full px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 border border-transparent dark:border-gray-700">
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button id="btnCancelFolderModal" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">Batal</button>
+        <button id="btnConfirmFolderModal" class="px-4 py-2 text-sm bg-brand-600 text-white hover:bg-brand-700 rounded-lg font-medium">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const GDRIVE_CLIENT_ID = '365427881478-1j1ej91jqdqi7vq4ii6hogfqhpb7tljn.apps.googleusercontent.com';
+    const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
+    const STORAGE_KEY = 'NOTED_APP_DATA_V1';
+    const GDRIVE_TOKEN_KEY = 'NOTED_GDRIVE_TOKEN';
+    const GDRIVE_FILE_KEY = 'NOTED_GDRIVE_FILE_ID';
+    
+    let gdriveTokenClient, gdriveAccessToken = null, gdriveFileId = null, gdriveSyncTimer = null;
+    
+    let state = {
+      folders: [], notes: [], activeCategory: 'all', activeNoteId: null,
+      searchQuery: '', activeTagFilter: null, sortOrder: 'updatedDesc', viewMode: 'list'
+    };
+    let folderModalContext = { mode: 'create', folderId: null, parentId: null };
+
+    function initData() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) { try { state = JSON.parse(saved); } catch(e) { createDefaultData(); } } 
+      else { createDefaultData(); }
+    }
+
+    function createDefaultData() {
+      const rootFolderId = 'f_' + Date.now();
+      state.folders = [
+        { id: rootFolderId, name: 'Pekerjaan', parentId: null, isOpen: true },
+        { id: 'f_' + (Date.now() + 1), name: 'Proyek Website', parentId: rootFolderId, isOpen: true },
+        { id: 'f_' + (Date.now() + 2), name: 'Pribadi', parentId: null, isOpen: true }
+      ];
+      state.notes = [{
+        id: 'n_' + Date.now(), title: 'Selamat Datang di Noted! 🚀',
+        content: '<h2>Aplikasi Catatan Lengkap</h2><p>Ketuk di sini untuk mulai mengetik. Data akan otomatis tersimpan ke Google Drive!</p>',
+        folderId: rootFolderId, tags: ['Petunjuk'], isFavorite: true, isTrash: false,
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+      }];
+      saveData();
+    }
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if (gdriveAccessToken) {
+        clearTimeout(gdriveSyncTimer);
+        gdriveSyncTimer = setTimeout(() => { uploadFileToDrive(); }, 3000);
+      }
+    }
+
+    // =========================================================
+    // GOOGLE DRIVE FUNCTIONS - DENGAN AUTO-CONNECT
+    // =========================================================
+    function initGDrive() {
+      if (typeof google !== 'undefined' && google.accounts) {
+        gdriveTokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: GDRIVE_CLIENT_ID, 
+          scope: GDRIVE_SCOPES,
+          callback: (resp) => {
+            if (resp.error) { 
+              console.error('Token error:', resp);
+              showGDriveStatus('Gagal autentikasi', true); 
+              return; 
+            }
+            // ✅ SIMPAN TOKEN DI LOCALSTORAGE
+            gdriveAccessToken = resp.access_token;
+            localStorage.setItem(GDRIVE_TOKEN_KEY, resp.access_token);
+            
+            updateGDriveUI('connected');
+            checkExistingBackupInDrive();
+          }
+        });
+
+        // ✅ AUTO-CONNECT: Cek apakah ada token tersimpan
+        const savedToken = localStorage.getItem(GDRIVE_TOKEN_KEY);
+        if (savedToken) {
+          gdriveAccessToken = savedToken;
+          updateGDriveUI('connected');
+          showGDriveStatus('Menghubungkan ke Drive...', false);
+          checkExistingBackupInDrive();
+        }
+      }
+    }
+
+    function handleGDriveAuthClick() {
+      if (gdriveAccessToken === null) {
+        // Minta user login dengan consent
+        gdriveTokenClient.requestAccessToken({ prompt: 'consent' });
+      } else {
+        showGDriveStatus('Menyinkronkan...');
+        uploadFileToDrive();
+      }
+    }
+
+    function disconnectDrive() {
+      if (confirm('Putuskan koneksi Google Drive? Data akan tetap tersimpan di perangkat ini, tapi tidak akan di-backup ke Drive lagi.')) {
+        gdriveAccessToken = null;
+        gdriveFileId = null;
+        localStorage.removeItem(GDRIVE_TOKEN_KEY);
+        localStorage.removeItem(GDRIVE_FILE_KEY);
+        
+        const btn = document.getElementById('gdriveSyncBtn');
+        btn.classList.remove('text-blue-600', 'dark:text-blue-400');
+        btn.classList.add('text-gray-600', 'dark:text-gray-300');
+        document.getElementById('gdriveStatusText').innerText = 'Hubungkan Drive';
+        
+        const indicator = document.getElementById('gdriveSyncIndicator');
+        indicator.classList.add('hidden');
+        
+        showGDriveStatus('Drive terputus', false);
+        setTimeout(() => {
+          indicator.classList.add('hidden');
+        }, 2000);
+      }
+    }
+
+    async function checkExistingBackupInDrive() {
+      try {
+        // Cek apakah ada file ID tersimpan
+        const savedFileId = localStorage.getItem(GDRIVE_FILE_KEY);
+        if (savedFileId) {
+          gdriveFileId = savedFileId;
+          await downloadFileFromDrive(gdriveFileId);
+          return;
+        }
+
+        // Cari file backup di Drive
+        const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='noted_backup.json' and trashed=false`, { 
+          headers: { 'Authorization': 'Bearer ' + gdriveAccessToken } 
+        });
+        const result = await response.json();
+        if (result.files && result.files.length > 0) {
+          gdriveFileId = result.files[0].id;
+          localStorage.setItem(GDRIVE_FILE_KEY, gdriveFileId);
+          await downloadFileFromDrive(gdriveFileId);
+        } else { 
+          await uploadFileToDrive(); 
+        }
+      } catch (err) { 
+        console.error('Drive check error:', err);
+        showGDriveStatus('Gagal koneksi Drive', true); 
+      }
+    }
+
+    async function uploadFileToDrive() {
+      if (!gdriveAccessToken) return;
+      const boundary = '----NotedAppBoundary' + Date.now();
+      const body = `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n{"name":"noted_backup.json","mimeType":"application/json"}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(state)}\r\n--${boundary}--`;
+      const method = gdriveFileId ? 'PATCH' : 'POST';
+      const url = gdriveFileId ? `https://www.googleapis.com/upload/drive/v3/files/${gdriveFileId}?uploadType=multipart` : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+      try {
+        const response = await fetch(url, { 
+          method, 
+          headers: { 'Authorization': 'Bearer ' + gdriveAccessToken, 'Content-Type': 'multipart/related; boundary="' + boundary + '"' }, 
+          body 
+        });
+        const file = await response.json();
+        if (file.id) { 
+          gdriveFileId = file.id;
+          localStorage.setItem(GDRIVE_FILE_KEY, gdriveFileId);
+          showGDriveStatus('Tersinkronisasi'); 
+        }
+      } catch (err) { 
+        console.error('Upload error:', err);
+        showGDriveStatus('Gagal sinkronisasi', true); 
+      }
+    }
+
+    async function downloadFileFromDrive(fileId) {
+      try {
+        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { 
+          headers: { 'Authorization': 'Bearer ' + gdriveAccessToken } 
+        });
+        const remoteData = await response.json();
+        if (remoteData && Array.isArray(remoteData.folders)) {
+          state = remoteData; 
+          saveData(); 
+          renderFolderTree(); 
+          renderNotesList(); 
+          renderTagsList();
+          showGDriveStatus('Data diperbarui dari Drive');
+        }
+      } catch (err) { 
+        console.error('Download error:', err);
+        showGDriveStatus('Gagal mengambil data', true); 
+      }
+    }
+
+    function updateGDriveUI(status) {
+      const btn = document.getElementById('gdriveSyncBtn');
+      if (status === 'connected') {
+        btn.classList.remove('text-gray-600', 'dark:text-gray-300');
+        btn.classList.add('text-blue-600', 'dark:text-blue-400');
+        document.getElementById('gdriveStatusText').innerText = 'Sinkronkan Sekarang';
+      }
+    }
+
+    function showGDriveStatus(message, isError = false) {
+      const indicator = document.getElementById('gdriveSyncIndicator');
+      indicator.classList.remove('hidden', 'text-green-600', 'text-red-500', 'text-gray-400', 'dark:text-gray-500', 'dark:text-green-400');
+      indicator.classList.add(isError ? 'text-red-500' : 'text-green-600', 'dark:text-green-400');
+      indicator.innerHTML = `<i class="fa-solid fa-${isError ? 'circle-exclamation' : 'google-drive'}"></i> ${message}`;
+      if (!isError) setTimeout(() => {
+        indicator.innerHTML = `<i class="fa-brands fa-google-drive"></i> Tersinkronisasi`;
+        indicator.className = 'text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1';
+      }, 4000);
+    }
+
+    // --- RENDER FUNCTIONS ---
+    function renderFolderTree() {
+      const container = document.getElementById('folderTreeContainer');
+      container.innerHTML = '';
+      function buildTreeNodes(parentId, depth = 0) {
+        const children = state.folders.filter(f => f.parentId === parentId);
+        if (!children.length) return '';
+        let html = '<div class="space-y-0.5">';
+        children.forEach(folder => {
+          const isSelected = state.activeCategory === folder.id;
+          const hasChildren = state.folders.some(f => f.parentId === folder.id);
+          const paddingLeft = (depth * 12) + 12;
+          html += `<div class="group flex items-center justify-between px-2 py-1.5 rounded-lg text-sm cursor-pointer transition-colors ${isSelected ? 'bg-brand-50 text-brand-600 font-semibold dark:bg-brand-950/60 dark:text-brand-400' : 'hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-700 dark:text-gray-300'}" style="padding-left: ${paddingLeft}px">
+            <div class="flex items-center space-x-2 truncate flex-1" onclick="selectCategory('${folder.id}')">
+              ${hasChildren ? `<button onclick="event.stopPropagation(); toggleFolderOpen('${folder.id}')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 w-4 h-4 flex items-center justify-center"><i class="fa-solid fa-chevron-${folder.isOpen ? 'down' : 'right'} text-[10px]"></i></button>` : '<span class="w-4"></span>'}
+              <i class="fa-regular fa-folder${folder.isOpen ? '-open' : ''} text-amber-500 text-xs"></i>
+              <span class="truncate">${escapeHtml(folder.name)}</span>
+            </div>
+            <div class="hidden group-hover:flex items-center space-x-1 pl-1">
+              <button onclick="event.stopPropagation(); openFolderModal('createSub', '${folder.id}')" class="p-1 hover:text-brand-500 text-gray-400 text-xs"><i class="fa-solid fa-plus"></i></button>
+              <button onclick="event.stopPropagation(); openFolderModal('rename', '${folder.id}')" class="p-1 hover:text-brand-500 text-gray-400 text-xs"><i class="fa-solid fa-pen"></i></button>
+              <button onclick="event.stopPropagation(); deleteFolder('${folder.id}')" class="p-1 hover:text-red-500 text-gray-400 text-xs"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>`;
+          if (hasChildren && folder.isOpen) html += buildTreeNodes(folder.id, depth + 1);
+        });
+        return html + '</div>';
+      }
+      container.innerHTML = buildTreeNodes(null, 0) || `<div class="text-xs text-gray-400 px-3 py-2 italic">Belum ada folder</div>`;
+      updateSidebarCounts();
+    }
+
+    function toggleFolderOpen(folderId) {
+      const folder = state.folders.find(f => f.id === folderId);
+      if (folder) { folder.isOpen = !folder.isOpen; saveData(); renderFolderTree(); }
+    }
+
+    function updateSidebarCounts() {
+      const activeNotes = state.notes.filter(n => !n.isTrash);
+      document.getElementById('countAllNotes').innerText = activeNotes.length;
+      document.getElementById('countFavorites').innerText = activeNotes.filter(n => n.isFavorite).length;
+      document.getElementById('countTrash').innerText = state.notes.filter(n => n.isTrash).length;
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('bg-gray-100', 'dark:bg-gray-800', 'text-brand-600', 'font-semibold'));
+      if (state.activeCategory === 'all') document.getElementById('navAllNotes').classList.add('bg-gray-100', 'dark:bg-gray-800', 'text-brand-600', 'font-semibold');
+      if (state.activeCategory === 'favorites') document.getElementById('navFavorites').classList.add('bg-gray-100', 'dark:bg-gray-800', 'text-brand-600', 'font-semibold');
+      if (state.activeCategory === 'trash') document.getElementById('navTrash').classList.add('bg-gray-100', 'dark:bg-gray-800', 'text-brand-600', 'font-semibold');
+    }
+
+    function renderTagsList() {
+      const tagContainer = document.getElementById('tagListContainer');
+      tagContainer.innerHTML = '';
+      const allTags = new Set();
+      state.notes.filter(n => !n.isTrash).forEach(n => { if (Array.isArray(n.tags)) n.tags.forEach(t => allTags.add(t)); });
+      if (allTags.size === 0) { tagContainer.innerHTML = `<span class="text-xs text-gray-400 italic">Tidak ada tag</span>`; return; }
+      allTags.forEach(tag => {
+        const isSelected = state.activeTagFilter === tag;
+        const btn = document.createElement('button');
+        btn.className = `text-xs px-2 py-0.5 rounded-full border transition-colors ${isSelected ? 'bg-brand-500 text-white border-brand-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-brand-500'}`;
+        btn.innerText = `#${tag}`;
+        btn.onclick = () => { state.activeTagFilter = isSelected ? null : tag; renderNotesList(); renderTagsList(); updateFilterBadge(); };
+        tagContainer.appendChild(btn);
+      });
+    }
+
+    function updateFilterBadge() {
+      const badgeBar = document.getElementById('filterBadgeBar');
+      if (state.activeTagFilter || state.searchQuery) {
+        badgeBar.classList.remove('hidden');
+        let text = [];
+        if (state.searchQuery) text.push(`Cari: "${state.searchQuery}"`);
+        if (state.activeTagFilter) text.push(`Tag: #${state.activeTagFilter}`);
+        document.getElementById('filterBadgeText').innerText = text.join(' | ');
+      } else { badgeBar.classList.add('hidden'); }
+    }
+
+    function renderNotesList() {
+      const container = document.getElementById('notesContainer');
+      container.innerHTML = '';
+      let filtered = state.notes.filter(note => {
+        if (state.activeCategory === 'trash') { if (!note.isTrash) return false; } 
+        else {
+          if (note.isTrash) return false;
+          if (state.activeCategory === 'favorites' && !note.isFavorite) return false;
+          if (state.activeCategory !== 'all' && state.activeCategory !== 'favorites' && note.folderId !== state.activeCategory) return false;
+        }
+        if (state.activeTagFilter && (!note.tags || !note.tags.includes(state.activeTagFilter))) return false;
+        if (state.searchQuery) {
+          const q = state.searchQuery.toLowerCase();
+          if (!note.title.toLowerCase().includes(q) && !stripHtml(note.content).toLowerCase().includes(q) && !(note.tags && note.tags.some(t => t.toLowerCase().includes(q)))) return false;
+        }
+        return true;
+      });
+
+      filtered.sort((a, b) => state.sortOrder === 'titleAsc' ? a.title.localeCompare(b.title) : new Date(b.updatedAt) - new Date(a.updatedAt));
+      document.getElementById('notesCountSubtitle').innerText = `${filtered.length} Catatan`;
+      
+      const titleEl = document.getElementById('currentCategoryTitle');
+      if (state.activeCategory === 'all') titleEl.innerText = 'Semua Catatan';
+      else if (state.activeCategory === 'favorites') titleEl.innerText = 'Catatan Favorit';
+      else if (state.activeCategory === 'trash') titleEl.innerText = 'Sampah';
+      else { const folder = state.folders.find(f => f.id === state.activeCategory); titleEl.innerText = folder ? folder.name : 'Catatan'; }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-gray-400 space-y-2"><i class="fa-regular fa-folder-open text-3xl"></i><p class="text-xs">Tidak ada catatan ditemukan</p></div>`;
+        if (!filtered.some(n => n.id === state.activeNoteId)) showEmptyEditorState(true);
+        return;
+      }
+
+      if (!state.activeNoteId || !filtered.some(n => n.id === state.activeNoteId)) { state.activeNoteId = filtered[0].id; }
+      container.className = state.viewMode === 'grid' ? 'flex-1 overflow-y-auto p-2 grid grid-cols-1 gap-2' : 'flex-1 overflow-y-auto p-2 space-y-1.5';
+
+      filtered.forEach(note => {
+        const isActive = note.id === state.activeNoteId;
+        const plainPreview = stripHtml(note.content).substring(0, 90) || 'Catatan kosong...';
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-xl cursor-pointer border transition-all duration-150 ${isActive ? 'bg-brand-50/80 border-brand-300 dark:bg-brand-950/40 dark:border-brand-800 shadow-sm' : 'bg-white dark:bg-gray-950 border-gray-100 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700'}`;
+        card.onclick = () => selectNote(note.id);
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-1 mb-1">
+            <h4 class="font-semibold text-sm truncate ${isActive ? 'text-brand-700 dark:text-brand-300' : 'text-gray-800 dark:text-gray-100'}">${escapeHtml(note.title) || 'Tanpa Judul'}</h4>
+            ${note.isFavorite ? '<i class="fa-solid fa-star text-amber-500 text-xs shrink-0 mt-0.5"></i>' : ''}
+          </div>
+          <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2 leading-relaxed font-normal">${escapeHtml(plainPreview)}</p>
+          <div class="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-gray-50 dark:border-gray-900">
+            <span>${formatDate(note.updatedAt)}</span>
+            ${note.tags && note.tags.length ? `<span class="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-[10px] text-gray-500 truncate max-w-[100px]">#${escapeHtml(note.tags[0])}</span>` : ''}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      loadActiveNoteToEditor();
+    }
+
+    function closeSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+      sidebar.classList.add('-translate-x-full');
+      backdrop.classList.add('opacity-0');
+      setTimeout(() => { backdrop.classList.add('hidden'); }, 200);
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+      const isClosed = sidebar.classList.contains('-translate-x-full');
+      if (isClosed) {
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+        setTimeout(() => backdrop.classList.remove('opacity-0'), 10);
+      } else { closeSidebar(); }
+    }
+
+    function selectCategory(catId) {
+      state.activeCategory = catId;
+      state.activeTagFilter = null;
+      renderFolderTree(); renderNotesList();
+      if (window.innerWidth < 768) closeSidebar();
+    }
+
+    function showEditorUI() {
+      document.getElementById('notesListPanel').classList.add('hidden');
+      document.getElementById('editorPanel').classList.remove('hidden');
+    }
+
+    function showListUI() {
+      document.getElementById('editorPanel').classList.add('hidden');
+      document.getElementById('notesListPanel').classList.remove('hidden');
+    }
+
+    function selectNote(noteId) {
+      state.activeNoteId = noteId;
+      renderNotesList();
+      if (window.innerWidth < 768) {
+        showEditorUI(); closeSidebar();
+        history.pushState({ view: 'editor', noteId: noteId }, '', '#editor');
+      }
+    }
+
+    function createNewNote() {
+      const newFolderId = (state.activeCategory !== 'all' && state.activeCategory !== 'favorites' && state.activeCategory !== 'trash') 
+        ? state.activeCategory : (state.folders[0] ? state.folders[0].id : null);
+
+      const newNote = {
+        id: 'n_' + Date.now(), title: 'Catatan Tanpa Judul', content: '', folderId: newFolderId,
+        tags: [], isFavorite: false, isTrash: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+      };
+
+      state.notes.unshift(newNote);
+      state.activeNoteId = newNote.id;
+      saveData(); renderFolderTree(); renderNotesList(); renderTagsList();
+
+      setTimeout(() => {
+        const titleInput = document.getElementById('noteTitleInput');
+        titleInput.focus();
+        titleInput.select();
+      }, 100);
+
+      if (window.innerWidth < 768) {
+        showEditorUI(); closeSidebar();
+        history.pushState({ view: 'editor', noteId: newNote.id }, '', '#editor');
+      }
+    }
+
+    function handleBackNavigation() {
+      if (window.innerWidth < 768 && !document.getElementById('editorPanel').classList.contains('hidden')) {
+        showListUI();
+        if (window.location.hash === '#editor') history.back(); 
+      }
+    }
+
+    window.addEventListener('popstate', (event) => {
+      if (!document.getElementById('editorPanel').classList.contains('hidden')) showListUI();
+    });
+
+    function loadActiveNoteToEditor() {
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (!note) { showEmptyEditorState(true); return; }
+      showEmptyEditorState(false);
+      
+      const select = document.getElementById('noteFolderSelect');
+      select.innerHTML = '';
+      function appendOptions(parentId, depth = 0) {
+        state.folders.filter(f => f.parentId === parentId).forEach(f => {
+          const opt = document.createElement('option');
+          opt.value = f.id; opt.innerText = `${'\u00A0\u00A0'.repeat(depth)}📁 ${f.name}`;
+          if (f.id === note.folderId) opt.selected = true;
+          select.appendChild(opt); appendOptions(f.id, depth + 1);
+        });
+      }
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = ''; defaultOpt.innerText = '📁 (Tanpa Folder)';
+      if (!note.folderId) defaultOpt.selected = true;
+      select.appendChild(defaultOpt);
+      appendOptions(null, 0);
+
+      document.getElementById('noteTitleInput').value = note.title;
+      document.getElementById('noteContentEditor').innerHTML = note.content;
+      
+      const tagContainer = document.getElementById('activeTagsContainer');
+      tagContainer.innerHTML = '';
+      (note.tags || []).forEach(t => {
+        const tagChip = document.createElement('span');
+        tagChip.className = 'inline-flex items-center space-x-1 text-xs bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 px-2 py-0.5 rounded-md border border-brand-200 dark:border-brand-800';
+        tagChip.innerHTML = `<span>#${escapeHtml(t)}</span><button onclick="removeTagFromActiveNote('${escapeHtml(t)}')" class="hover:text-red-500 ml-1"><i class="fa-solid fa-xmark text-[10px]"></i></button>`;
+        tagContainer.appendChild(tagChip);
+      });
+
+      const favIcon = document.getElementById('favIcon');
+      favIcon.className = note.isFavorite ? 'fa-solid fa-star text-amber-500 text-base' : 'fa-regular fa-star text-base';
+
+      const btnDelete = document.getElementById('btnDeleteNote');
+      const btnFav = document.getElementById('btnToggleFavorite');
+      const btnRestore = document.getElementById('btnRestoreNote');
+      const btnPermanent = document.getElementById('btnPermanentDelete');
+      const contentEditor = document.getElementById('noteContentEditor');
+      const titleInput = document.getElementById('noteTitleInput');
+
+      if (note.isTrash) {
+        btnDelete.classList.add('hidden'); btnFav.classList.add('hidden');
+        btnRestore.classList.remove('hidden'); btnPermanent.classList.remove('hidden');
+        contentEditor.setAttribute('contenteditable', 'false'); titleInput.setAttribute('disabled', 'true');
+      } else {
+        btnDelete.classList.remove('hidden'); btnFav.classList.remove('hidden');
+        btnRestore.classList.add('hidden'); btnPermanent.classList.add('hidden');
+        contentEditor.setAttribute('contenteditable', 'true'); titleInput.removeAttribute('disabled');
+      }
+      updateNoteStats();
+    }
+
+    function showEmptyEditorState(isEmpty) {
+      document.getElementById('emptyEditorState').classList.toggle('hidden', !isEmpty);
+    }
+
+    function updateNoteStats() {
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (!note) return;
+      const text = stripHtml(note.content);
+      document.getElementById('statWords').innerText = `${text.trim() ? text.trim().split(/\s+/).length : 0} kata`;
+      document.getElementById('statChars').innerText = `${text.length} karakter`;
+      document.getElementById('statLastModified').innerText = `Diubah: ${formatDate(note.updatedAt)}`;
+    }
+
+    function autoSaveActiveNote() {
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (!note || note.isTrash) return;
+      note.title = document.getElementById('noteTitleInput').value;
+      note.content = document.getElementById('noteContentEditor').innerHTML;
+      note.updatedAt = new Date().toISOString();
+      saveData(); updateNoteStats();
+      
+      const activeCardTitle = document.querySelector(`[onclick="selectNote('${note.id}')"] h4`);
+      if (activeCardTitle) activeCardTitle.innerText = note.title || 'Tanpa Judul';
+      
+      const statSaved = document.getElementById('statSavedTime');
+      statSaved.innerText = 'Menyimpan...';
+      setTimeout(() => { statSaved.innerText = 'Tersimpan'; }, 1000);
+    }
+
+    function addTagToActiveNote(tagName) {
+      const cleanTag = tagName.trim().replace(/^#/, '');
+      if (!cleanTag) return;
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (note && !note.tags.includes(cleanTag)) {
+        note.tags.push(cleanTag); saveData(); loadActiveNoteToEditor(); renderTagsList(); renderNotesList();
+      }
+    }
+
+    function removeTagFromActiveNote(tagName) {
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (note) {
+        note.tags = note.tags.filter(t => t !== tagName);
+        saveData(); loadActiveNoteToEditor(); renderTagsList(); renderNotesList();
+      }
+    }
+
+    function toggleFavorite() {
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (note) { note.isFavorite = !note.isFavorite; saveData(); loadActiveNoteToEditor(); renderNotesList(); updateSidebarCounts(); }
+    }
+
+    function moveNoteToTrash() {
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (note) { note.isTrash = true; saveData(); renderNotesList(); renderFolderTree(); }
+    }
+
+    function restoreNoteFromTrash() {
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (note) { note.isTrash = false; saveData(); renderNotesList(); renderFolderTree(); }
+    }
+
+    function deleteNotePermanently() {
+      if (confirm('Hapus catatan ini secara permanen?')) {
+        state.notes = state.notes.filter(n => n.id !== state.activeNoteId);
+        state.activeNoteId = null; saveData(); renderNotesList(); renderFolderTree();
+      }
+    }
+
+    function openFolderModal(mode, targetId = null) {
+      folderModalContext = { mode, folderId: mode === 'rename' ? targetId : null, parentId: mode === 'createSub' ? targetId : null };
+      const title = document.getElementById('folderModalTitle');
+      const input = document.getElementById('folderNameInput');
+      if (mode === 'createRoot') { title.innerText = 'Buat Folder Utama Baru'; input.value = ''; } 
+      else if (mode === 'createSub') { const parent = state.folders.find(f => f.id === targetId); title.innerText = `Sub-folder di "${parent ? parent.name : ''}"`; input.value = ''; } 
+      else if (mode === 'rename') { const current = state.folders.find(f => f.id === targetId); title.innerText = 'Ubah Nama Folder'; input.value = current ? current.name : ''; }
+      document.getElementById('folderModal').classList.remove('hidden');
+      setTimeout(() => input.focus(), 50);
+    }
+
+    function closeFolderModal() { document.getElementById('folderModal').classList.add('hidden'); }
+
+    function handleSaveFolder() {
+      const name = document.getElementById('folderNameInput').value.trim();
+      if (!name) return;
+      if (folderModalContext.mode === 'createRoot' || folderModalContext.mode === 'createSub') {
+        state.folders.push({ id: 'f_' + Date.now(), name, parentId: folderModalContext.parentId, isOpen: true });
+      } else if (folderModalContext.mode === 'rename') {
+        const folder = state.folders.find(f => f.id === folderModalContext.folderId);
+        if (folder) folder.name = name;
+      }
+      saveData(); renderFolderTree(); closeFolderModal();
+    }
+
+    function deleteFolder(folderId) {
+      if (confirm('Hapus folder ini? Catatan di dalamnya akan dipindahkan ke tanpa folder.')) {
+        const idsToDelete = [folderId];
+        function collectChildren(pId) {
+          state.folders.filter(f => f.parentId === pId).forEach(child => { idsToDelete.push(child.id); collectChildren(child.id); });
+        }
+        collectChildren(folderId);
+        state.notes.forEach(n => { if (idsToDelete.includes(n.folderId)) n.folderId = null; });
+        state.folders = state.folders.filter(f => !idsToDelete.includes(f.id));
+        if (state.activeCategory === folderId) state.activeCategory = 'all';
+        saveData(); renderFolderTree(); renderNotesList();
+      }
+    }
+
+    function exportDataJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+      const a = document.createElement('a');
+      a.href = dataStr; a.download = `noted_backup_${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    function importDataJSON(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (imported && Array.isArray(imported.folders) && Array.isArray(imported.notes)) {
+            state = imported; saveData(); renderFolderTree(); renderNotesList(); renderTagsList();
+            alert('Data berhasil diimpor!');
+          } else { alert('Format file JSON tidak valid.'); }
+        } catch(err) { alert('Gagal membaca file JSON.'); }
+      };
+      reader.readAsText(file);
+    }
+
+    function exportNoteAsMarkdown() {
+      const note = state.notes.find(n => n.id === state.activeNoteId);
+      if (!note) return;
+      const blob = new Blob([`# ${note.title || 'catatan'}\n\n${stripHtml(note.content)}`], { type: 'text/markdown;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = `${(note.title || 'catatan').toLowerCase().replace(/\s+/g, '_')}.md`;
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    function stripHtml(html) { const tmp = document.createElement('DIV'); tmp.innerHTML = html; return tmp.textContent || tmp.innerText || ''; }
+    function escapeHtml(str) { return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+    function formatDate(isoStr) { if (!isoStr) return ''; return new Date(isoStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+
+    // --- INITIALIZATION & EVENT LISTENERS ---
+    window.onload = function() {
+      initData(); renderFolderTree(); renderNotesList(); renderTagsList(); initGDrive();
+
+      document.getElementById('btnNewNote').onclick = createNewNote;
+      document.getElementById('fabNewNote').onclick = createNewNote;
+      document.getElementById('btnEmptyStateNewNote').onclick = createNewNote;
+      document.getElementById('btnAddRootFolder').onclick = () => openFolderModal('createRoot');
+
+      document.getElementById('navAllNotes').onclick = () => selectCategory('all');
+      document.getElementById('navFavorites').onclick = () => selectCategory('favorites');
+      document.getElementById('navTrash').onclick = () => selectCategory('trash');
+
+      document.getElementById('noteTitleInput').addEventListener('input', autoSaveActiveNote);
+      document.getElementById('noteContentEditor').addEventListener('input', autoSaveActiveNote);
+
+      document.getElementById('noteFolderSelect').addEventListener('change', (e) => {
+        const note = state.notes.find(n => n.id === state.activeNoteId);
+        if (note) { note.folderId = e.target.value || null; saveData(); renderNotesList(); renderFolderTree(); }
+      });
+
+      document.getElementById('addTagInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addTagToActiveNote(e.target.value); e.target.value = ''; }
+      });
+
+      document.getElementById('btnToggleFavorite').onclick = toggleFavorite;
+      document.getElementById('btnDeleteNote').onclick = moveNoteToTrash;
+      document.getElementById('btnRestoreNote').onclick = restoreNoteFromTrash;
+      document.getElementById('btnPermanentDelete').onclick = deleteNotePermanently;
+      document.getElementById('btnExportMarkdown').onclick = exportNoteAsMarkdown;
+      document.getElementById('btnDisconnectDrive').onclick = disconnectDrive;
+
+      function updateToolbarActiveStates() {
+        document.querySelectorAll('.tb-btn').forEach(btn => {
+          const cmd = btn.getAttribute('data-cmd');
+          const val = btn.getAttribute('data-val');
+          let isActive = false;
+          if (!cmd) return;
+          if (cmd === 'formatBlock' && val) {
+            const currentBlock = document.queryCommandValue('formatBlock').toString().toLowerCase().replace(/[<>]/g, '').trim();
+            const cleanVal = val.toLowerCase().replace(/[<>]/g, '').trim();
+            isActive = (currentBlock === cleanVal) || (cleanVal.startsWith('h') && currentBlock === `heading ${cleanVal.replace('h', '')}`);
+          } else {
+            isActive = document.queryCommandState(cmd);
+          }
+          if (isActive) btn.classList.add('is-active');
+          else btn.classList.remove('is-active');
+        });
+      }
+
+      document.querySelectorAll('.tb-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const cmd = btn.getAttribute('data-cmd');
+          const val = btn.getAttribute('data-val') || null;
+          if (cmd) {
+            const execVal = (cmd === 'formatBlock' && val) ? `<${val}>` : val;
+            document.execCommand(cmd, false, execVal);
+            document.getElementById('noteContentEditor').focus();
+            autoSaveActiveNote();
+            setTimeout(updateToolbarActiveStates, 50);
+          }
+        });
+      });
+
+      document.getElementById('textColorPicker').addEventListener('input', (e) => {
+        document.execCommand('foreColor', false, e.target.value);
+        document.getElementById('noteContentEditor').focus();
+        autoSaveActiveNote();
+      });
+      document.getElementById('textColorPicker').addEventListener('click', (e) => { e.stopPropagation(); showToolbar(); });
+
+      document.getElementById('highlightColorPicker').addEventListener('input', (e) => {
+        let success = document.execCommand('hiliteColor', false, e.target.value);
+        if (!success) document.execCommand('backColor', false, e.target.value);
+        document.getElementById('noteContentEditor').focus();
+        autoSaveActiveNote();
+      });
+      document.getElementById('highlightColorPicker').addEventListener('click', (e) => { e.stopPropagation(); showToolbar(); });
+
+      document.getElementById('toggleMoreTools').addEventListener('click', (e) => {
+        e.preventDefault();
+        showToolbar();
+        document.getElementById('expandedTools').classList.toggle('hidden');
+      });
+
+      const editor = document.getElementById('noteContentEditor');
+      editor.addEventListener('keyup', updateToolbarActiveStates);
+      editor.addEventListener('mouseup', updateToolbarActiveStates);
+      editor.addEventListener('click', updateToolbarActiveStates);
+
+      const searchInput = document.getElementById('searchInput');
+      const clearSearchBtn = document.getElementById('clearSearchBtn');
+      searchInput.addEventListener('input', (e) => {
+        state.searchQuery = e.target.value.trim();
+        clearSearchBtn.classList.toggle('hidden', !state.searchQuery);
+        renderNotesList(); updateFilterBadge();
+      });
+      clearSearchBtn.onclick = () => { searchInput.value = ''; state.searchQuery = ''; clearSearchBtn.classList.add('hidden'); renderNotesList(); updateFilterBadge(); };
+      
+      document.getElementById('btnClearFilter').onclick = () => {
+        searchInput.value = ''; state.searchQuery = ''; state.activeTagFilter = null;
+        clearSearchBtn.classList.add('hidden'); renderNotesList(); renderTagsList(); updateFilterBadge();
+      };
+
+      document.getElementById('btnSort').onclick = () => { state.sortOrder = state.sortOrder === 'updatedDesc' ? 'titleAsc' : 'updatedDesc'; renderNotesList(); };
+      document.getElementById('btnToggleLayout').onclick = () => {
+        state.viewMode = state.viewMode === 'list' ? 'grid' : 'list';
+        document.getElementById('layoutIcon').className = state.viewMode === 'grid' ? 'fa-solid fa-border-all' : 'fa-solid fa-list';
+        renderNotesList();
+      };
+
+      const dataMenuBtn = document.getElementById('btnDataMenu');
+      const dataDropdown = document.getElementById('dataMenuDropdown');
+      dataMenuBtn.onclick = (e) => { e.stopPropagation(); dataDropdown.classList.toggle('hidden'); };
+      document.addEventListener('click', () => dataDropdown.classList.add('hidden'));
+      
+      document.getElementById('btnExportJSON').onclick = exportDataJSON;
+      document.getElementById('btnImportJSON').onclick = () => document.getElementById('importFileInput').click();
+      document.getElementById('importFileInput').onchange = (e) => { if (e.target.files.length) importDataJSON(e.target.files[0]); };
+
+      document.getElementById('btnCancelFolderModal').onclick = closeFolderModal;
+      document.getElementById('btnConfirmFolderModal').onclick = handleSaveFolder;
+
+      const themeToggleBtn = document.getElementById('themeToggle');
+      const themeIcon = document.getElementById('themeIcon');
+      themeToggleBtn.onclick = () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        themeIcon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        localStorage.setItem('NOTED_THEME', isDark ? 'dark' : 'light');
+      };
+      if (localStorage.getItem('NOTED_THEME') === 'dark' || (!('NOTED_THEME' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark'); themeIcon.className = 'fa-solid fa-sun';
+      }
+
+      document.getElementById('toggleSidebarMobile').onclick = toggleSidebar;
+      document.getElementById('sidebarBackdrop').onclick = closeSidebar;
+      document.getElementById('btnBackToList').onclick = handleBackNavigation;
+
+      const toolbar = document.getElementById('formattingToolbarContainer');
+      const titleInput = document.getElementById('noteTitleInput');
+      let hideTimeout;
+
+      function showToolbar() {
+        clearTimeout(hideTimeout);
+        toolbar.classList.remove('hidden');
+        void toolbar.offsetWidth;
+        toolbar.classList.remove('opacity-0', '-translate-y-2');
+        toolbar.classList.add('opacity-100', 'translate-y-0');
+        updateToolbarActiveStates();
+      }
+
+      function hideToolbar() {
+        hideTimeout = setTimeout(() => {
+          if (document.activeElement === editor || document.activeElement === titleInput || toolbar.contains(document.activeElement)) {
+            return;
+          }
+          toolbar.classList.remove('opacity-100', 'translate-y-0');
+          toolbar.classList.add('opacity-0', '-translate-y-2');
+          setTimeout(() => {
+            if (document.activeElement !== editor && document.activeElement !== titleInput && !toolbar.contains(document.activeElement)) {
+              toolbar.classList.add('hidden');
+            }
+          }, 300);
+        }, 150);
+      }
+
+      editor.addEventListener('focus', showToolbar);
+      titleInput.addEventListener('focus', showToolbar);
+      editor.addEventListener('blur', hideToolbar);
+      titleInput.addEventListener('blur', hideToolbar);
+      editor.addEventListener('keydown', showToolbar);
+      titleInput.addEventListener('keydown', showToolbar);
+
+      let touchStartX = 0, touchStartY = 0;
+      const editorPanel = document.getElementById('editorPanel');
+
+      editorPanel.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+      }, { passive: true });
+
+      editorPanel.addEventListener('touchend', (e) => {
+        const diffX = e.changedTouches[0].screenX - touchStartX;
+        const diffY = Math.abs(e.changedTouches[0].screenY - touchStartY);
+        if (window.innerWidth < 768 && !editorPanel.classList.contains('hidden') && diffX > 50 && diffX > diffY && touchStartX < 50) {
+          handleBackNavigation();
+        }
+      }, { passive: true });
+    };
+  </script>
+</body>
+</html>
